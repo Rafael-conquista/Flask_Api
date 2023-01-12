@@ -1,10 +1,63 @@
 from flask_restful import Resource, reqparse
 from models.hotel import HotelModel
 from flask_jwt_extended import jwt_required
+import sqlite3
+import json
+
+def normalize_path_params(cidade=None,
+                          estrelas_min = 0,
+                          estrelas_max = 5,
+                          diaria_min = 0,
+                          diaria_max = 10000,
+                          limit = 50,
+                          offset = 0, **dados):
+    if cidade:
+        return {
+            'estrelas_min': estrelas_min,
+            'estrelas_max': estrelas_max,
+            'diaria_min': diaria_min,
+            'diaria_max': diaria_max,
+            'cidade': cidade,
+            'limit': limit,
+            'offset': offset}
+    return {
+        'estrelas_min': estrelas_min,
+        'estrelas_max': estrelas_max,
+        'diaria_min': diaria_min,
+        'diaria_max': diaria_max,
+        'limit': limit,
+        'offset': offset}
 
 class Hoteis(Resource):
+    query_params = reqparse.RequestParser()
+    query_params.add_argument("cidade", type=str, default="", location="args")
+    query_params.add_argument("estrelas_min", type=float, default=0, location="args")
+    query_params.add_argument("estrelas_max", type=float, default=0, location="args")
+    query_params.add_argument("diaria_min", type=float, default=0, location="args")
+    query_params.add_argument("diaria_max", type=float, default=0, location="args")
+ 
     def get(self):
-        return {"hoteis":[hotel.json() for hotel in HotelModel.query.all()]}
+        filters = Hoteis.query_params.parse_args()
+ 
+        query = HotelModel.query
+ 
+        if filters["cidade"]:
+            query = query.filter(HotelModel.cidade == filters["cidade"])
+        if filters["estrelas_min"]:
+            query = query.filter(HotelModel.estrelas >= filters["estrelas_min"])
+        if filters["estrelas_max"]:
+            query = query.filter(HotelModel.estrelas <= filters["estrelas_max"])
+        if filters["diaria_min"]:
+            query = query.filter(HotelModel.diaria >= filters["diaria_min"])
+        if filters["diaria_max"]:
+            query = query.filter(HotelModel.diaria <= filters["diaria_max"])
+        if filters["limit"]:
+            query = query.limit(filters["limit"])
+        if filters["offset"]:
+            query = query.offset(filters["offset"])
+ 
+        return {"hoteis": [hotel.json() for hotel in query]}
+
 
 
 class Hotel(Resource):
